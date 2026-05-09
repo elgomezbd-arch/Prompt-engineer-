@@ -16,63 +16,40 @@ async function startServer() {
     next();
   });
 
-  // Detect production mode by checking for dist folder
+  // Detect mode - primary indicator is existence of build artifacts
   const distPath = path.resolve(process.cwd(), "dist");
-  const distExists = fs.existsSync(distPath);
-  // We use production mode if the dist folder exists, unless we are explicitly told to be in development
-  const isProduction = distExists && process.env.NODE_ENV !== "development";
+  const isProduction = fs.existsSync(distPath);
 
   // Health check
   app.get("/api/health", (req, res) => {
     res.json({ 
       status: "ok", 
       mode: process.env.NODE_ENV,
-      distExists,
       isProduction,
-      distPath,
-      cwd: process.cwd(),
-      env: Object.keys(process.env).filter(k => !k.includes('KEY') && !k.includes('SECRET'))
+      cwd: process.cwd()
     });
   });
 
-  // Serve static files with proper MIME types
-  const staticMimeTypes: Record<string, string> = {
-    ".js": "application/javascript; charset=utf-8",
-    ".mjs": "application/javascript; charset=utf-8",
-    ".ts": "application/javascript; charset=utf-8",
-    ".tsx": "application/javascript; charset=utf-8",
-    ".css": "text/css; charset=utf-8",
-    ".html": "text/html; charset=utf-8",
-    ".json": "application/json; charset=utf-8",
-    ".svg": "image/svg+xml; charset=utf-8",
-    ".png": "image/png",
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".webp": "image/webp",
-    ".gif": "image/gif",
-  };
-
-  const setCustomHeaders = (res: any, filePath: string) => {
-    const ext = path.extname(filePath).toLowerCase();
-    if (staticMimeTypes[ext]) {
-      res.setHeader("Content-Type", staticMimeTypes[ext]);
-    }
-  };
-
   if (isProduction) {
+    const distPath = path.resolve(process.cwd(), "dist");
     console.log(`[PROD] Serving from: ${distPath}`);
-    
+
     app.use(express.static(distPath, {
       index: false,
-      setHeaders: setCustomHeaders
+      setHeaders: (res, filePath) => {
+        const ext = path.extname(filePath).toLowerCase();
+        if (ext === '.js' || ext === '.mjs') {
+          res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+        } else if (ext === '.css') {
+          res.setHeader('Content-Type', 'text/css; charset=utf-8');
+        }
+      }
     }));
 
-    // SPA Fallback
     app.get("*", (req, res) => {
       if (req.path.includes('.') && !req.path.endsWith('.html')) {
-        return res.status(404).send('Asset not found');
+        return res.status(404).end('Asset not found');
       }
-      
       const indexPath = path.join(distPath, "index.html");
       if (fs.existsSync(indexPath)) {
         res.sendFile(indexPath);
@@ -81,10 +58,11 @@ async function startServer() {
       }
     });
   } else {
-    // Development mode with Vite
+    // Development mode
     try {
       const { createServer: createViteServer } = await import("vite");
       const vite = await createViteServer({
+        root: process.cwd(),
         server: { 
           middlewareMode: true,
           hmr: process.env.DISABLE_HMR !== "true",
@@ -93,34 +71,27 @@ async function startServer() {
         },
         appType: "spa",
       });
-      
+
       app.use(vite.middlewares);
-      
-      // Explicitly serve src and root files if Vite falls through (though it shouldn't)
-      app.use(express.static(process.cwd(), {
-        index: false,
-        setHeaders: setCustomHeaders
-      }));
-      
+
       app.get("*", async (req, res, next) => {
+        // If it looks like a script/asset but reached here, Vite didn't handle it
         if (req.path.includes('.') && !req.path.endsWith('.html')) {
+          console.warn(`[DEV-MISS] Asset request fell through Vite: ${req.url}`);
           return next();
         }
+        
         try {
           const url = req.originalUrl;
           const indexFile = path.resolve(process.cwd(), "index.html");
-          if (!fs.existsSync(indexFile)) {
-             return res.status(404).send("index.html not found");
-          }
           let template = fs.readFileSync(indexFile, "utf-8");
           template = await vite.transformIndexHtml(url, template);
-          res.status(200).set({ "Content-Type": "text/html" }).send(template);
+          res.status(200).set({ "Content-Type": "text/html" }).end(template);
         } catch (e) {
           vite.ssrFixStacktrace(e as Error);
           next(e);
         }
       });
-      console.log("[DEV] Vite middleware and root static fallback active");
     } catch (err) {
       console.error("[DEV] Failed to start Vite:", err);
       process.exit(1);
