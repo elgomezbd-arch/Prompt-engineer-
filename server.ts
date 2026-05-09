@@ -16,9 +16,11 @@ async function startServer() {
     next();
   });
 
-  // Detect mode - primary indicator is existence of build artifacts
-  const distPath = path.resolve(process.cwd(), "dist");
-  const isProduction = fs.existsSync(distPath);
+  // Detect mode - check for common build output directories
+  const buildDir = fs.existsSync(path.resolve(process.cwd(), "build")) ? "build" : 
+                   fs.existsSync(path.resolve(process.cwd(), "dist")) ? "dist" : null;
+  const isProduction = process.env.NODE_ENV === "production" || buildDir !== null;
+  const staticPath = buildDir ? path.resolve(process.cwd(), buildDir) : path.resolve(process.cwd(), "dist");
 
   // Health check
   app.get("/api/health", (req, res) => {
@@ -26,15 +28,16 @@ async function startServer() {
       status: "ok", 
       mode: process.env.NODE_ENV,
       isProduction,
+      buildDir,
+      staticPath,
       cwd: process.cwd()
     });
   });
 
-  if (isProduction) {
-    const distPath = path.resolve(process.cwd(), "dist");
-    console.log(`[PROD] Serving from: ${distPath}`);
+  if (isProduction && buildDir) {
+    console.log(`[PROD] Serving from: ${staticPath}`);
 
-    app.use(express.static(distPath, {
+    app.use(express.static(staticPath, {
       index: false,
       setHeaders: (res, filePath) => {
         const ext = path.extname(filePath).toLowerCase();
@@ -42,6 +45,10 @@ async function startServer() {
           res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
         } else if (ext === '.css') {
           res.setHeader('Content-Type', 'text/css; charset=utf-8');
+        } else if (ext === '.json') {
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        } else if (ext === '.svg') {
+          res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
         }
       }
     }));
@@ -50,11 +57,11 @@ async function startServer() {
       if (req.path.includes('.') && !req.path.endsWith('.html')) {
         return res.status(404).end('Asset not found');
       }
-      const indexPath = path.join(distPath, "index.html");
+      const indexPath = path.join(staticPath, "index.html");
       if (fs.existsSync(indexPath)) {
         res.sendFile(indexPath);
       } else {
-        res.status(404).send("Application not built. Run npm run build.");
+        res.status(404).send(`Application not built. Expected index.html in ${staticPath}`);
       }
     });
   } else {
