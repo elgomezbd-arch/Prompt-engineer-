@@ -1,4 +1,4 @@
-import { LogIn, Sparkles, Zap, Shield, Cpu, ChevronRight } from "lucide-react";
+import { Terminal, Sparkles, Zap, Shield, Cpu, ChevronRight } from "lucide-react";
 import { motion } from "motion/react";
 
 interface LandingPageProps {
@@ -55,8 +55,8 @@ export const LandingPage = ({ onLogin }: LandingPageProps) => {
             className="group flex items-center gap-3 px-8 py-4 bg-zinc-100 hover:bg-white text-zinc-950 rounded-2xl font-bold text-lg transition-all shadow-[0_0_40px_rgba(255,255,255,0.1)] active:scale-95"
             id="landing-cta-button"
           >
-            <LogIn className="w-5 h-5" />
-            Get Started Now
+            <Terminal className="w-5 h-5" />
+            Architect Now
             <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
           </button>
         </motion.div>
@@ -118,9 +118,9 @@ export const LandingPage = ({ onLogin }: LandingPageProps) => {
           <h3 className="text-3xl font-bold text-white">Ready to change how <br/> you talk to AI?</h3>
           <button
             onClick={onLogin}
-            className="px-8 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl font-bold transition-all border border-zinc-700"
+            className="px-8 py-3 bg-zinc-100 hover:bg-white text-zinc-950 rounded-xl font-bold transition-all border border-zinc-700"
           >
-            Authenticate with Google
+            Open Architect
           </button>
         </div>
       </section>
