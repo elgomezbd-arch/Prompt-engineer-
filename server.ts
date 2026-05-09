@@ -16,53 +16,60 @@ async function startServer() {
     next();
   });
 
+  // Detect production mode by checking for dist folder
+  const distPath = path.resolve(process.cwd(), "dist");
+  const distExists = fs.existsSync(distPath);
+  // We use production mode if the dist folder exists, unless we are explicitly told to be in development
+  const isProduction = distExists && process.env.NODE_ENV !== "development";
+
   // Health check
   app.get("/api/health", (req, res) => {
     res.json({ 
       status: "ok", 
       mode: process.env.NODE_ENV,
-      render: process.env.RENDER === "true"
+      distExists,
+      isProduction,
+      distPath,
+      cwd: process.cwd(),
+      env: Object.keys(process.env).filter(k => !k.includes('KEY') && !k.includes('SECRET'))
     });
   });
 
-  // Use a more robust check for production
-  const isProduction = process.env.NODE_ENV === "production" || process.env.RENDER === "true";
+  // Serve static files with proper MIME types
+  const staticMimeTypes: Record<string, string> = {
+    ".js": "application/javascript; charset=utf-8",
+    ".mjs": "application/javascript; charset=utf-8",
+    ".ts": "application/javascript; charset=utf-8",
+    ".tsx": "application/javascript; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".html": "text/html; charset=utf-8",
+    ".json": "application/json; charset=utf-8",
+    ".svg": "image/svg+xml; charset=utf-8",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+    ".gif": "image/gif",
+  };
+
+  const setCustomHeaders = (res: any, filePath: string) => {
+    const ext = path.extname(filePath).toLowerCase();
+    if (staticMimeTypes[ext]) {
+      res.setHeader("Content-Type", staticMimeTypes[ext]);
+    }
+  };
 
   if (isProduction) {
-    // Try to find dist folder relative to current file first, then cwd
-    let distPath = path.resolve(__dirname, "dist");
-    if (!fs.existsSync(distPath)) {
-      distPath = path.join(process.cwd(), "dist");
-    }
+    console.log(`[PROD] Serving from: ${distPath}`);
     
-    console.log(`[PROD] Resolved distPath: ${distPath}`);
-    
-    if (fs.existsSync(distPath)) {
-      console.log(`[PROD] Contents of dist: ${fs.readdirSync(distPath).join(", ")}`);
-    } else {
-      console.error(`[ERROR] Dist directory NOT found anywhere!`);
-    }
-
-    // Serve static files
     app.use(express.static(distPath, {
-      setHeaders: (res, filePath) => {
-        const ext = path.extname(filePath).toLowerCase();
-        if (ext === '.js' || ext === '.mjs') {
-          res.setHeader('Content-Type', 'application/javascript');
-        } else if (ext === '.css') {
-          res.setHeader('Content-Type', 'text/css');
-        } else if (ext === '.tsx' || ext === '.ts') {
-          res.setHeader('Content-Type', 'application/javascript');
-        }
-      }
+      index: false,
+      setHeaders: setCustomHeaders
     }));
 
     // SPA Fallback
     app.get("*", (req, res) => {
-      console.log(`[PROD-SPA] Handling path: ${req.path}`);
-      // If it looks like a file (has an extension) but wasn't caught by express.static, 404 it
       if (req.path.includes('.') && !req.path.endsWith('.html')) {
-        console.log(`[404] Asset not found: ${req.url}`);
         return res.status(404).send('Asset not found');
       }
       
@@ -70,48 +77,52 @@ async function startServer() {
       if (fs.existsSync(indexPath)) {
         res.sendFile(indexPath);
       } else {
-        console.error(`[ERROR] index.html not found at: ${indexPath}`);
-        res.status(404).send("Application shell not found");
+        res.status(404).send("Application not built. Run npm run build.");
       }
     });
-    
-    console.log(`[PROD] Server configured to serve from: ${distPath}`);
   } else {
-    // Dynamic import for Vite to avoid overhead in production
+    // Development mode with Vite
     try {
       const { createServer: createViteServer } = await import("vite");
       const vite = await createViteServer({
         server: { 
-          middlewareMode: true, 
+          middlewareMode: true,
           hmr: process.env.DISABLE_HMR !== "true",
           host: "0.0.0.0",
           port: 3000
         },
         appType: "spa",
       });
+      
       app.use(vite.middlewares);
       
-      // SPA fallback for dev
+      // Explicitly serve src and root files if Vite falls through (though it shouldn't)
+      app.use(express.static(process.cwd(), {
+        index: false,
+        setHeaders: setCustomHeaders
+      }));
+      
       app.get("*", async (req, res, next) => {
-        // If it's a request for a file with an extension that slipped through Vite
         if (req.path.includes('.') && !req.path.endsWith('.html')) {
-          console.log(`[DEV-404] Vite didn't handle asset: ${req.url}`);
-          return res.status(404).send('Asset not found');
+          return next();
         }
         try {
           const url = req.originalUrl;
-          let template = fs.readFileSync(path.resolve(process.cwd(), "index.html"), "utf-8");
+          const indexFile = path.resolve(process.cwd(), "index.html");
+          if (!fs.existsSync(indexFile)) {
+             return res.status(404).send("index.html not found");
+          }
+          let template = fs.readFileSync(indexFile, "utf-8");
           template = await vite.transformIndexHtml(url, template);
-          res.status(200).set({ "Content-Type": "text/html" }).end(template);
+          res.status(200).set({ "Content-Type": "text/html" }).send(template);
         } catch (e) {
           vite.ssrFixStacktrace(e as Error);
           next(e);
         }
       });
-
-      console.log("[DEV] Vite middleware and SPA fallback active");
+      console.log("[DEV] Vite middleware and root static fallback active");
     } catch (err) {
-      console.error("[DEV] Failed to start Vite server:", err);
+      console.error("[DEV] Failed to start Vite:", err);
       process.exit(1);
     }
   }
