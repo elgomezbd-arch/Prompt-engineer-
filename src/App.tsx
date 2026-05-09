@@ -4,6 +4,7 @@ import { LogIn, LogOut, Settings, Hexagon, Terminal, Github, Key, Sparkles } fro
 import { auth, signInWithGoogle, logout } from "./lib/firebase";
 import { SettingsModal } from "./components/SettingsModal";
 import { PromptEngine } from "./components/PromptEngine";
+import { LandingPage } from "./components/LandingPage";
 import { motion, AnimatePresence } from "motion/react";
 
 export default function App() {
@@ -94,114 +95,96 @@ export default function App() {
       </nav>
 
       <main className="relative z-10 max-w-7xl mx-auto px-6 py-16 sm:py-24 space-y-24">
-        {/* Developer Intro */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex justify-center"
-          id="top-developer-intro"
-        >
-          <a 
-            href="https://github.com/SharifTawhid" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="flex items-center gap-4 px-4 py-2 bg-zinc-900/30 border border-zinc-800/50 rounded-2xl hover:border-zinc-700/50 transition-all group"
-          >
-            <img 
-              src="https://github.com/SharifTawhid.png" 
-              alt="Sharif Tawhid" 
-              className="w-8 h-8 rounded-lg grayscale group-hover:grayscale-0 transition-all shadow-lg"
-            />
-            <div className="text-left">
-              <p className="text-[10px] font-mono tracking-widest uppercase text-zinc-600 group-hover:text-zinc-500 transition-colors">Developer & Maintainer</p>
-              <p className="text-xs font-bold text-zinc-400 group-hover:text-zinc-100 transition-colors">Sharif Tawhid</p>
-            </div>
-          </a>
-        </motion.div>
-
-        {/* Hero Section */}
-        <section className="text-center space-y-6 max-w-2xl mx-auto" id="hero-section">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-zinc-800 bg-zinc-900/50 text-[10px] uppercase tracking-widest font-bold text-zinc-500"
-          >
-            <Sparkles className="w-3 h-3" /> AI-Powered Prompt Engineering
-          </motion.div>
-          
-          <motion.h2
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="text-4xl sm:text-6xl font-bold tracking-tighter text-white leading-[1.1]"
-          >
-            Structure your chaos into <span className="italic text-zinc-400">precision</span>.
-          </motion.h2>
-          
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="text-lg text-zinc-500 leading-relaxed"
-          >
-            The Architect evaluates your ideas and automatically selects from 13 professional frameworks to build the perfect AI prompt.
-          </motion.p>
-        </section>
-
-        {/* Engine Section */}
-        <section id="engine-section">
-          {!apiKey ? (
+        {!user ? (
+          <LandingPage onLogin={signInWithGoogle} />
+        ) : (
+          <>
+            {/* Developer Intro - Only show when logged in to keep engine focus */}
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="max-w-md mx-auto p-12 border border-dashed border-zinc-800 rounded-3xl text-center space-y-6"
-              id="setup-required-container"
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex justify-center"
+              id="top-developer-intro"
             >
-              <div className="flex justify-center">
-                <div className="p-4 bg-zinc-900 rounded-2xl">
-                  <Key className="w-8 h-8 text-zinc-600" />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <h3 className="text-lg font-bold text-white">Config Required</h3>
-                <p className="text-sm text-zinc-500">Provide your Google AI Studio API key to activate the Architect.</p>
-              </div>
-              <button
-                onClick={() => setIsSettingsOpen(true)}
-                className="w-full py-3 bg-zinc-100 hover:bg-white text-zinc-950 font-bold rounded-xl transition-all"
-                id="setup-key-button"
+              <a 
+                href="https://github.com/SharifTawhid" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center gap-4 px-4 py-2 bg-zinc-900/30 border border-zinc-800/50 rounded-2xl hover:border-zinc-700/50 transition-all group"
               >
-                Set Up API Key
-              </button>
-            </motion.div>
-          ) : !user ? (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="max-w-md mx-auto p-12 border border-dashed border-zinc-800 rounded-3xl text-center space-y-6"
-              id="auth-required-container"
-            >
-              <div className="flex justify-center">
-                <div className="p-4 bg-zinc-900 rounded-2xl">
-                  <LogIn className="w-8 h-8 text-zinc-600" />
+                <img 
+                  src="https://github.com/SharifTawhid.png" 
+                  alt="Sharif Tawhid" 
+                  className="w-8 h-8 rounded-lg grayscale group-hover:grayscale-0 transition-all shadow-lg"
+                />
+                <div className="text-left">
+                  <p className="text-[10px] font-mono tracking-widest uppercase text-zinc-600 group-hover:text-zinc-500 transition-colors">Developer & Maintainer</p>
+                  <p className="text-xs font-bold text-zinc-400 group-hover:text-zinc-100 transition-colors">Sharif Tawhid</p>
                 </div>
-              </div>
-              <div className="space-y-2">
-                <h3 className="text-lg font-bold text-white">Authentication Required</h3>
-                <p className="text-sm text-zinc-500">Sign in to start structuring your prompts with the Architect.</p>
-              </div>
-              <button
-                onClick={signInWithGoogle}
-                className="w-full py-3 bg-zinc-100 hover:bg-white text-zinc-950 font-bold rounded-xl transition-all shadow-xl"
-                id="setup-auth-button"
-              >
-                Sign in with Google
-              </button>
+              </a>
             </motion.div>
-          ) : (
-            <PromptEngine apiKey={apiKey} />
-          )}
-        </section>
+
+            {/* Hero Section */}
+            <section className="text-center space-y-6 max-w-2xl mx-auto" id="hero-section">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-zinc-800 bg-zinc-900/50 text-[10px] uppercase tracking-widest font-bold text-zinc-500"
+              >
+                <Sparkles className="w-3 h-3" /> AI-Powered Prompt Engineering
+              </motion.div>
+              
+              <motion.h2
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="text-4xl sm:text-6xl font-bold tracking-tighter text-white leading-[1.1]"
+              >
+                Structure your chaos into <span className="italic text-zinc-400">precision</span>.
+              </motion.h2>
+              
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="text-lg text-zinc-500 leading-relaxed"
+              >
+                The Architect evaluates your ideas and automatically selects from 13 professional frameworks to build the perfect AI prompt.
+              </motion.p>
+            </section>
+
+            {/* Engine Section */}
+            <section id="engine-section">
+              {!apiKey ? (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="max-w-md mx-auto p-12 border border-dashed border-zinc-800 rounded-3xl text-center space-y-6"
+                  id="setup-required-container"
+                >
+                  <div className="flex justify-center">
+                    <div className="p-4 bg-zinc-900 rounded-2xl">
+                      <Key className="w-8 h-8 text-zinc-600" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-lg font-bold text-white">Config Required</h3>
+                    <p className="text-sm text-zinc-500">Provide your Google AI Studio API key to activate the Architect.</p>
+                  </div>
+                  <button
+                    onClick={() => setIsSettingsOpen(true)}
+                    className="w-full py-3 bg-zinc-100 hover:bg-white text-zinc-950 font-bold rounded-xl transition-all"
+                    id="setup-key-button"
+                  >
+                    Set Up API Key
+                  </button>
+                </motion.div>
+              ) : (
+                <PromptEngine apiKey={apiKey} />
+              )}
+            </section>
+          </>
+        )}
 
         {/* Footer */}
         <footer className="pt-24 pb-12 border-t border-zinc-900 flex flex-col sm:flex-row justify-between items-center gap-6" id="footer">
