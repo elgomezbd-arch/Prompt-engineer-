@@ -16,21 +16,18 @@ async function startServer() {
     next();
   });
 
-  // Detect mode - check for common build output directories
-  const buildDir = fs.existsSync(path.resolve(process.cwd(), "build")) ? "build" : 
-                   fs.existsSync(path.resolve(process.cwd(), "dist")) ? "dist" : null;
-  const isProduction = process.env.NODE_ENV === "production" || buildDir !== null;
+  // Detect mode - strictly prioritize NODE_ENV or default to development
+  const isProduction = process.env.NODE_ENV === "production";
+  const buildDir = fs.existsSync(path.resolve(process.cwd(), "dist")) ? "dist" : 
+                   fs.existsSync(path.resolve(process.cwd(), "build")) ? "build" : null;
   const staticPath = buildDir ? path.resolve(process.cwd(), buildDir) : path.resolve(process.cwd(), "dist");
 
   // Health check
   app.get("/api/health", (req, res) => {
     res.json({ 
       status: "ok", 
-      mode: process.env.NODE_ENV,
-      isProduction,
-      buildDir,
-      staticPath,
-      cwd: process.cwd()
+      mode: process.env.NODE_ENV || "development",
+      isProduction
     });
   });
 
