@@ -17,6 +17,23 @@
     <style>
       @keyframes spin { to { transform: rotate(360deg); } }
     </style>
+    <script>
+      console.log("[INDEX] HTML loaded, starting script module...");
+      window.addEventListener('load', () => {
+        console.log("[INDEX] Page fully loaded");
+        setTimeout(() => {
+          const root = document.getElementById('root');
+          if (root && root.querySelector('p')) {
+            const p = root.querySelector('p');
+            if (p.textContent && p.textContent.includes('Initializing')) {
+              console.error("[INDEX] Architect failed to initialize within 5s. This may be a script loading error.");
+              p.style.color = '#ef4444';
+              p.innerHTML = 'Initialization delayed. <br/><span style="font-size: 10px; text-transform: none; opacity: 0.7;">Check console for errors or click <button onclick="location.reload()" style="background:none; border:none; color:white; text-decoration:underline; cursor:pointer; padding:0; font:inherit;">here</button> to retry.</span>';
+            }
+          }
+        }, 8000);
+      });
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

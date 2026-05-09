@@ -29,23 +29,37 @@ async function startServer() {
   const isProduction = process.env.NODE_ENV === "production" || process.env.RENDER === "true";
 
   if (isProduction) {
-    const distPath = path.join(process.cwd(), "dist");
-    
+    // Try to find dist folder relative to current file first, then cwd
+    let distPath = path.resolve(__dirname, "dist");
     if (!fs.existsSync(distPath)) {
-      console.error(`[ERROR] Dist directory NOT found at: ${distPath}`);
-      // Fallback to checking sibling dist
-      const altDist = path.resolve(__dirname, "dist");
-      console.log(`[INFO] Checking alternative dist at: ${altDist}`);
-      if (fs.existsSync(altDist)) {
-        console.log(`[INFO] Found dist at alternative path.`);
-      }
+      distPath = path.join(process.cwd(), "dist");
+    }
+    
+    console.log(`[PROD] Resolved distPath: ${distPath}`);
+    
+    if (fs.existsSync(distPath)) {
+      console.log(`[PROD] Contents of dist: ${fs.readdirSync(distPath).join(", ")}`);
+    } else {
+      console.error(`[ERROR] Dist directory NOT found anywhere!`);
     }
 
     // Serve static files
-    app.use(express.static(distPath));
+    app.use(express.static(distPath, {
+      setHeaders: (res, filePath) => {
+        const ext = path.extname(filePath).toLowerCase();
+        if (ext === '.js' || ext === '.mjs') {
+          res.setHeader('Content-Type', 'application/javascript');
+        } else if (ext === '.css') {
+          res.setHeader('Content-Type', 'text/css');
+        } else if (ext === '.tsx' || ext === '.ts') {
+          res.setHeader('Content-Type', 'application/javascript');
+        }
+      }
+    }));
 
     // SPA Fallback
     app.get("*", (req, res) => {
+      console.log(`[PROD-SPA] Handling path: ${req.path}`);
       // If it looks like a file (has an extension) but wasn't caught by express.static, 404 it
       if (req.path.includes('.') && !req.path.endsWith('.html')) {
         console.log(`[404] Asset not found: ${req.url}`);
@@ -76,7 +90,26 @@ async function startServer() {
         appType: "spa",
       });
       app.use(vite.middlewares);
-      console.log("[DEV] Vite middleware active");
+      
+      // SPA fallback for dev
+      app.get("*", async (req, res, next) => {
+        // If it's a request for a file with an extension that slipped through Vite
+        if (req.path.includes('.') && !req.path.endsWith('.html')) {
+          console.log(`[DEV-404] Vite didn't handle asset: ${req.url}`);
+          return res.status(404).send('Asset not found');
+        }
+        try {
+          const url = req.originalUrl;
+          let template = fs.readFileSync(path.resolve(process.cwd(), "index.html"), "utf-8");
+          template = await vite.transformIndexHtml(url, template);
+          res.status(200).set({ "Content-Type": "text/html" }).end(template);
+        } catch (e) {
+          vite.ssrFixStacktrace(e as Error);
+          next(e);
+        }
+      });
+
+      console.log("[DEV] Vite middleware and SPA fallback active");
     } catch (err) {
       console.error("[DEV] Failed to start Vite server:", err);
       process.exit(1);
